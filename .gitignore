@@ -28,3 +28,24 @@ buildNumber.properties
 # OS
 .DS_Store
 Thumbs.db
+
+# Docker
+*.tar
+*.tar.gz
+
+# AKS
+*.kubeconfig
+kubeconfig
+.kube/
+
+# Azure
+.azure/
+*.azureauth
+
+# Secrets (never commit!)
+secrets/
+*.key
+*.pem
+*.crt
+.env
+.env.local

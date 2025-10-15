@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: javaapp
+  labels:
+    name: javaapp
+    environment: production
+    azure.workload.identity/enabled: "true"
+  annotations:
+    linkerd.io/inject: enabled
+    prometheus.io/scrape: "true"

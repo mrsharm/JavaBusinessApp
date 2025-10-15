@@ -1,0 +1,199 @@
+# Azure DevOps Pipeline for Java Application with Kubernetes Deployment
+
+trigger:
+  branches:
+    include:
+    - main
+    - develop
+  paths:
+    exclude:
+    - README.md
+    - docs/*
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  - name: dockerRegistryServiceConnection
+    value: 'ACR-Service-Connection'
+  - name: imageRepository
+    value: 'javaapp'
+  - name: containerRegistry
+    value: '$(acrName).azurecr.io'
+  - name: dockerfilePath
+    value: '$(Build.SourcesDirectory)/Dockerfile'
+  - name: tag
+    value: '$(Build.BuildId)'
+  - name: k8sNamespace
+    value: 'javaapp'
+  - name: imagePullSecret
+    value: 'acr-secret'
+
+stages:
+- stage: Build
+  displayName: 'Build and Test'
+  jobs:
+  - job: Build
+    displayName: 'Build Java Application'
+    steps:
+    - task: Maven@3
+      displayName: 'Maven Build and Test'
+      inputs:
+        mavenPomFile: 'pom.xml'
+        goals: 'clean package'
+        publishJUnitResults: true
+        testResultsFiles: '**/surefire-reports/TEST-*.xml'
+        javaHomeOption: 'JDKVersion'
+        jdkVersionOption: '1.17'
+        mavenVersionOption: 'Default'
+        mavenAuthenticateFeed: false
+        effectivePomSkip: false
+        sonarQubeRunAnalysis: false
+
+    - task: CopyFiles@2
+      displayName: 'Copy Files to Artifact Staging Directory'
+      inputs:
+        SourceFolder: '$(System.DefaultWorkingDirectory)'
+        Contents: |
+          target/*.jar
+          aks/**
+          Dockerfile
+        TargetFolder: '$(Build.ArtifactStagingDirectory)'
+
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish Artifacts'
+      inputs:
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+        ArtifactName: 'drop'
+        publishLocation: 'Container'
+
+- stage: Security
+  displayName: 'Security Scanning'
+  dependsOn: Build
+  jobs:
+  - job: SecurityScan
+    displayName: 'Security and Vulnerability Scanning'
+    steps:
+    - task: Maven@3
+      displayName: 'OWASP Dependency Check'
+      inputs:
+        mavenPomFile: 'pom.xml'
+        goals: 'org.owasp:dependency-check-maven:check'
+        options: '-DfailBuildOnCVSS=7'
+        publishJUnitResults: false
+      continueOnError: true
+
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish Security Report'
+      inputs:
+        PathtoPublish: 'target/dependency-check-report.html'
+        ArtifactName: 'security-report'
+      condition: always()
+
+- stage: DockerBuild
+  displayName: 'Build and Push Docker Image'
+  dependsOn: Security
+  jobs:
+  - job: Docker
+    displayName: 'Build and Push Container Image'
+    steps:
+    - task: Docker@2
+      displayName: 'Build Docker Image'
+      inputs:
+        command: 'build'
+        repository: '$(imageRepository)'
+        dockerfile: '$(dockerfilePath)'
+        containerRegistry: '$(dockerRegistryServiceConnection)'
+        tags: |
+          $(tag)
+          latest
+
+    - task: Docker@2
+      displayName: 'Push Docker Image to ACR'
+      inputs:
+        command: 'push'
+        repository: '$(imageRepository)'
+        containerRegistry: '$(dockerRegistryServiceConnection)'
+        tags: |
+          $(tag)
+          latest
+
+- stage: DeployDev
+  displayName: 'Deploy to Development'
+  dependsOn: DockerBuild
+  jobs:
+  - deployment: DeployDev
+    displayName: 'Deploy to Dev AKS'
+    environment: 'dev-javaapp'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - task: KubernetesManifest@0
+            displayName: 'Create/Update Namespace'
+            inputs:
+              action: 'deploy'
+              kubernetesServiceConnection: 'AKS-Dev-Connection'
+              manifests: '$(Pipeline.Workspace)/drop/aks/namespace.yaml'
+
+          - task: KubernetesManifest@0
+            displayName: 'Create ImagePullSecret'
+            inputs:
+              action: 'createSecret'
+              kubernetesServiceConnection: 'AKS-Dev-Connection'
+              namespace: '$(k8sNamespace)'
+              secretType: 'dockerRegistry'
+              secretName: '$(imagePullSecret)'
+              dockerRegistryEndpoint: '$(dockerRegistryServiceConnection)'
+
+          - task: KubernetesManifest@0
+            displayName: 'Deploy ConfigMap'
+            inputs:
+              action: 'deploy'
+              kubernetesServiceConnection: 'AKS-Dev-Connection'
+              namespace: '$(k8sNamespace)'
+              manifests: '$(Pipeline.Workspace)/drop/aks/configmap.yaml'
+
+          - task: KubernetesManifest@0
+            displayName: 'Deploy Application'
+            inputs:
+              action: 'deploy'
+              kubernetesServiceConnection: 'AKS-Dev-Connection'
+              namespace: '$(k8sNamespace)'
+              manifests: |
+                $(Pipeline.Workspace)/drop/aks/serviceaccount.yaml
+                $(Pipeline.Workspace)/drop/aks/networkpolicy.yaml
+                $(Pipeline.Workspace)/drop/aks/deployment.yaml
+                $(Pipeline.Workspace)/drop/aks/service.yaml
+                $(Pipeline.Workspace)/drop/aks/hpa.yaml
+                $(Pipeline.Workspace)/drop/aks/pdb.yaml
+              containers: '$(containerRegistry)/$(imageRepository):$(tag)'
+
+- stage: DeployProd
+  displayName: 'Deploy to Production'
+  dependsOn: DeployDev
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+  jobs:
+  - deployment: DeployProd
+    displayName: 'Deploy to Production AKS'
+    environment: 'prod-javaapp'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - task: KubernetesManifest@0
+            displayName: 'Deploy to Production'
+            inputs:
+              action: 'deploy'
+              kubernetesServiceConnection: 'AKS-Prod-Connection'
+              namespace: '$(k8sNamespace)'
+              manifests: |
+                $(Pipeline.Workspace)/drop/aks/namespace.yaml
+                $(Pipeline.Workspace)/drop/aks/serviceaccount.yaml
+                $(Pipeline.Workspace)/drop/aks/configmap.yaml
+                $(Pipeline.Workspace)/drop/aks/networkpolicy.yaml
+                $(Pipeline.Workspace)/drop/aks/deployment.yaml
+                $(Pipeline.Workspace)/drop/aks/service.yaml
+                $(Pipeline.Workspace)/drop/aks/hpa.yaml
+                $(Pipeline.Workspace)/drop/aks/pdb.yaml
+              containers: '$(containerRegistry)/$(imageRepository):$(tag)'

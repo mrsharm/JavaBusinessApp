@@ -1,0 +1,58 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: javaapp-config
+  namespace: javaapp
+  labels:
+    app: javaapp
+data:
+  # Application configuration
+  APP_NAME: "Java Application with Log4j"
+  APP_VERSION: "1.0"
+  LOG_LEVEL: "INFO"
+  
+  # JVM Options
+  JAVA_OPTS: "-Xms256m -Xmx512m -XX:+UseG1GC"
+  
+  # Log4j configuration
+  log4j2.xml: |
+    <?xml version="1.0" encoding="UTF-8"?>
+    <Configuration status="WARN">
+        <Appenders>
+            <!-- Console Appender for Kubernetes logs -->
+            <Console name="Console" target="SYSTEM_OUT">
+                <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n"/>
+            </Console>
+            
+            <!-- File Appender -->
+            <File name="FileLogger" fileName="/app/logs/application.log" append="true">
+                <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n"/>
+            </File>
+            
+            <!-- Rolling File Appender -->
+            <RollingFile name="RollingFileLogger" fileName="/app/logs/app-rolling.log"
+                         filePattern="/app/logs/app-%d{yyyy-MM-dd}-%i.log.gz">
+                <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n"/>
+                <Policies>
+                    <TimeBasedTriggeringPolicy interval="1"/>
+                    <SizeBasedTriggeringPolicy size="10MB"/>
+                </Policies>
+                <DefaultRolloverStrategy max="10"/>
+            </RollingFile>
+        </Appenders>
+        
+        <Loggers>
+            <!-- Application Logger -->
+            <Logger name="com.example.javaapp" level="debug" additivity="false">
+                <AppenderRef ref="Console"/>
+                <AppenderRef ref="FileLogger"/>
+                <AppenderRef ref="RollingFileLogger"/>
+            </Logger>
+            
+            <!-- Root Logger -->
+            <Root level="info">
+                <AppenderRef ref="Console"/>
+                <AppenderRef ref="FileLogger"/>
+            </Root>
+        </Loggers>
+    </Configuration>

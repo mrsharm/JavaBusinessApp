@@ -1,0 +1,33 @@
+# Maven
+target/
+!target/javaapp-1.0-SNAPSHOT.jar
+!target/classes/log4j2.xml
+
+# IDE
+.idea/
+.vscode/
+*.iml
+.settings/
+.classpath
+.project
+
+# Logs
+logs/
+*.log
+
+# Git
+.git/
+.gitignore
+
+# Documentation
+*.md
+!README.md
+
+# AKS manifests
+aks/
+*.yaml
+*.yml
+
+# Other
+.DS_Store
+Thumbs.db

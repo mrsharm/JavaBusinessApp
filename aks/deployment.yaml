@@ -1,0 +1,135 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: javaapp
+  namespace: javaapp
+  labels:
+    app: javaapp
+    version: v1
+    azure.workload.identity/use: "true"
+  annotations:
+    deployment.kubernetes.io/revision: "1"
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: javaapp
+  template:
+    metadata:
+      labels:
+        app: javaapp
+        version: v1
+        azure.workload.identity/use: "true"
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+    spec:
+      serviceAccountName: javaapp-sa
+      containers:
+      - name: javaapp
+        image: ${ACR_NAME}.azurecr.io/javaapp:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+        env:
+        - name: APP_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: javaapp-config
+              key: APP_NAME
+        - name: APP_VERSION
+          valueFrom:
+            configMapKeyRef:
+              name: javaapp-config
+              key: APP_VERSION
+        - name: LOG_LEVEL
+          valueFrom:
+            configMapKeyRef:
+              name: javaapp-config
+              key: LOG_LEVEL
+        - name: JAVA_OPTS
+          valueFrom:
+            configMapKeyRef:
+              name: javaapp-config
+              key: JAVA_OPTS
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        volumeMounts:
+        - name: log4j-config
+          mountPath: /app/log4j2.xml
+          subPath: log4j2.xml
+        - name: logs
+          mountPath: /app/logs
+        - name: azure-identity
+          mountPath: /var/run/secrets/azure
+          readOnly: true
+        livenessProbe:
+          exec:
+            command:
+            - pgrep
+            - java
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          exec:
+            command:
+            - pgrep
+            - java
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          runAsUser: 1000
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: false
+      volumes:
+      - name: log4j-config
+        configMap:
+          name: javaapp-config
+          items:
+          - key: log4j2.xml
+            path: log4j2.xml
+      - name: logs
+        emptyDir: {}
+      - name: azure-identity
+        projected:
+          sources:
+          - serviceAccountToken:
+              path: token
+              expirationSeconds: 3600
+              audience: api://AzureADTokenExchange
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 30
+      nodeSelector:
+        kubernetes.io/os: linux
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - javaapp
+              topologyKey: kubernetes.io/hostname

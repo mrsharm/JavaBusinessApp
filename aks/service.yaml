@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: javaapp-service
+  namespace: javaapp
+  labels:
+    app: javaapp
+  annotations:
+    service.beta.kubernetes.io/azure-load-balancer-health-probe-request-path: "/health"
+    service.beta.kubernetes.io/azure-load-balancer-health-probe-interval: "5"
+    service.beta.kubernetes.io/azure-load-balancer-health-probe-num-of-probe: "2"
+    service.beta.kubernetes.io/azure-dns-label-name: "javaapp-${RANDOM_SUFFIX}"
+spec:
+  type: LoadBalancer
+  selector:
+    app: javaapp
+  ports:
+  - name: http
+    port: 80
+    targetPort: 8080
+    protocol: TCP
+  sessionAffinity: ClientIP
+  sessionAffinityConfig:
+    clientIP:
+      timeoutSeconds: 10800
+  externalTrafficPolicy: Local
