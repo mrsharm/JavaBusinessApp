@@ -2,15 +2,15 @@
 
 A cloud-native Java application with Log4j 2 logging, containerized with Docker and optimized for Azure Kubernetes Service (AKS) deployment with Azure-native integrations.
 
-## ⚠️ SECURITY WARNING ⚠️
+## ✅ SECURITY STATUS
 
-**THIS APPLICATION USES A VULNERABLE VERSION OF LOG4J FOR DEMONSTRATION PURPOSES ONLY!**
+**This application uses a SAFE version of Log4j.**
 
-- **Version**: Log4j 2.14.1
-- **Vulnerabilities**: CVE-2021-44228 (Log4Shell), CVE-2021-45046, CVE-2021-45105
-- **DO NOT USE IN PRODUCTION!**
+- **Version**: Log4j 2.20.0
+- **Status**: ✅ Not vulnerable to CVE-2021-44228 (Log4Shell)
+- **Remediation**: Completed - upgraded from vulnerable versions to 2.20.0
 
-This demonstrates security scanning, vulnerability detection, and Azure Defender integration.
+The application includes a `VulnerableDemo.java` file for educational purposes that demonstrates what the Log4Shell vulnerability looked like, but it runs on the safe 2.20.0 version where these exploits do not work.
 
 ## 🚀 Quick Deploy to Azure
 
