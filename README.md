@@ -2,15 +2,16 @@
 
 A cloud-native Java application with Log4j 2 logging, containerized with Docker and optimized for Azure Kubernetes Service (AKS) deployment with Azure-native integrations.
 
-## ⚠️ SECURITY WARNING ⚠️
+## ✅ SECURITY STATUS
 
-**THIS APPLICATION USES A VULNERABLE VERSION OF LOG4J FOR DEMONSTRATION PURPOSES ONLY!**
+**This application uses a secure version of Log4j.**
 
-- **Version**: Log4j 2.14.1
-- **Vulnerabilities**: CVE-2021-44228 (Log4Shell), CVE-2021-45046, CVE-2021-45105
-- **DO NOT USE IN PRODUCTION!**
+- **Version**: Log4j 2.20.0
+- **Status**: ✅ No known vulnerabilities
+- **CVE-2021-44228**: Remediated (was in 2.14.1, fixed in 2.17.1+)
+- **Last Validated**: 2025-10-22
 
-This demonstrates security scanning, vulnerability detection, and Azure Defender integration.
+See `QUICK_REFERENCE.md` for remediation details and `LOG4J_REMEDIATION_VALIDATION.md` for full validation report.
 
 ## 🚀 Quick Deploy to Azure
 
@@ -200,9 +201,14 @@ See `azure-pipelines.yaml` for details.
 
 ## 📚 Documentation
 
-- **[DEPLOYMENT.md](DEPLOYMENT.md)** - Complete deployment guide
+- **[QUICK_REFERENCE.md](QUICK_REFERENCE.md)** - Log4j remediation quick summary ⭐ START HERE
+- **[LOG4J_REMEDIATION_VALIDATION.md](LOG4J_REMEDIATION_VALIDATION.md)** - Complete validation report
+- **[DYNATRACE_VERIFICATION_GUIDE.md](DYNATRACE_VERIFICATION_GUIDE.md)** - Dynatrace monitoring queries
+- **[DEPLOYMENT_CHECKLIST.md](DEPLOYMENT_CHECKLIST.md)** - Azure Web App deployment guide
+- **[DEPLOYMENT.md](DEPLOYMENT.md)** - AKS deployment guide
 - **[QUICKSTART.md](QUICKSTART.md)** - Quick start
-- **[aks/](aks/)** - Manifest files
+- **[aks/](aks/)** - Kubernetes manifest files
+- **[evidence/](evidence/)** - SBOM and dependency evidence
 
 ## 🆘 Troubleshooting
 
